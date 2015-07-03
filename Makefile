@@ -28,12 +28,13 @@ all: $(TARGET)
 
 $(TARGET): $(OBJS)
 	@if [ ! -d $(OUTDIR) ]; then \
-		echo ";; mkdir $(OUTDIR)"; mkdir $(OUTDIR); \
+		mkdir $(OUTDIR); \
 	fi
 	$(CXX) -o $(OUTDIR)/$@ $(OBJS) $(LDFLAGS)
 
 clean:
 	rm -f $(OUTDIR)/$(TARGET) $(OBJS) *~
+	rm -d $(OUTDIR)
 
 # サフィックス
 .c.o:
