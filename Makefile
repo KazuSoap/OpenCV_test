@@ -16,7 +16,7 @@ TARGET = opencv_test
 OBJS = $(TARGET).o
 
 # 出力ディレクトリー
-OUTDIR = ./build/
+OUTDIR = build
 
 # コンパイラに渡すフラグ
 CXX = gcc
@@ -27,10 +27,13 @@ LDFLAGS  = `pkg-config --libs opencv`
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CXX) -o $(OUTDIR)$@ $(OBJS) $(LDFLAGS)
+	@if [ ! -d $(OUTDIR) ]; then \
+		echo ";; mkdir $(OUTDIR)"; mkdir $(OUTDIR); \
+	fi
+	$(CXX) -o $(OUTDIR)/$@ $(OBJS) $(LDFLAGS)
 
 clean:
-	rm -f $(OUTDIR)$(TARGET) $(OBJS) *~
+	rm -f $(OUTDIR)/$(TARGET) $(OBJS) *~
 
 # サフィックス
 .c.o:
