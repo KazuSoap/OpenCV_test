@@ -26,7 +26,7 @@ typedef struct matchData {
 FILE* wfopen_r_InGui ( wchar_t* path, wchar_t* fname );
 int wgetPatternStr ( wchar_t* pattern );
 int patternMatchInFile (FILE* fp, wchar_t* pattern, mData* md);
-int parseMatchDataCSV ( );
+int parseMatchDataCSV ( mData* mds );
 int comp( const void *c1, const void *c2 );
 
 int wmain(void) {
@@ -40,12 +40,13 @@ int wmain(void) {
 
     if( (fp = wfopen_r_InGui(path, fname)) == NULL ) {
         wprintf(L"%sのオープンに失敗\n", path);
-        return EXIT_FAILURE;;
+        return EXIT_FAILURE;
     }
 
-    /* parseMatchDataCSV(); */
+    int i = parseMatchDataCSV( mds );
+    getch();
 
-    for (int i=0; i < MAX_MDATA_NUM;) {
+    for ( ; i < MAX_MDATA_NUM; ) {
         wchar_t pattern[MAX_PATT_LEN] = {0};
 
         system("cls"); // clear screen
@@ -54,7 +55,7 @@ int wmain(void) {
             patternMatchInFile( fp, pattern , &mds[i]);
             if ( mds[i].pat_len ){
                 if( mds[i].n ){
-                    wprintf(L"マッチしました : マッチ数 : %d個, 最初にマッチした位置 : %d文字目,\n", mds[i].n, mds[i].pos[i]);
+                    wprintf(L"マッチしました : マッチ数 : %d個, 最初にマッチした位置 : %d文字目,\n", mds[i].n, mds[i].pos[0]);
                 }
                 i++;
             }
@@ -79,11 +80,10 @@ int wmain(void) {
             }
 
             for(int j=0; j < i; j++){
-                fwprintf(fptmp, L" %d,", mds[j].pat_len);
+                fwprintf(fptmp, L"%d,", mds[j].pat_len);
                 for( int k=0; k < mds[j].pat_len; k++){
-                    fwprintf(fptmp, L" %x", mds[j].pattern[k]);
+                    fwprintf(fptmp, L"%x,", mds[j].pattern[k]);
                 }
-                fwprintf(fptmp, L",");
 
                 fwprintf(fptmp, L"%ld,", mds[j].n);
                 for( int k=0; k < mds[j].n; k++){
@@ -212,7 +212,6 @@ mode2:
             wprintf(L"\rコマンド : %s", command);
         } else if ( c == 0x31 /*1*/ && i==0 ) {
             wprintf(L"%c\n", c);
-            wprintf(L"保存した結果を表示する予定\n");
             break;
         } else if ( c == 0x1b /*Esc*/ && i==0 ){
             wprintf(L"%s\n", L"Esc");
@@ -254,55 +253,53 @@ int patternMatchInFile (FILE* fp, wchar_t* pattern, mData* md) {
     return 0;
 }
 
-int parseMatchDataCSV ( ){
+int parseMatchDataCSV ( mData* mds ){
     FILE *fp;
     if ((fp = _wfopen(L"./output.csv", L"r")) == NULL) {
         wprintf(L"オープンに失敗\n");
-        return -1;
+        return 0;
     }
 
     wchar_t c;
+    wchar_t* endptr;
     wchar_t tmpstr1[MAX_PATT_LEN] = {0};
     wchar_t tmpstr2[MAX_PATT_LEN] = {0};
-    for ( int cnt=0; (c = fgetwc(fp)) != WEOF; ) {
-        if( c == L' ' ){
-            int i = 0;
-            while ( *(fp->_ptr+i) != L' ' && *(fp->_ptr+i) != L',' ) {
-                tmpstr1[i] = *(fp->_ptr+i);
-                i++;
-            }
-            tmpstr1[i] = L'\0';
-
-            wchar_t *endptr;
-            tmpstr2[cnt] = wcstol( tmpstr1, &endptr, 16);
-            cnt++;
-        } else if ( c == L',' ) {
-            int i = 0;
-            while ( *(fp->_ptr+i) != L',' && *(fp->_ptr+i) != L'\n' ) {
-                tmpstr1[i] = *(fp->_ptr+i);
-                i++;
-            }
-            tmpstr1[i] = L'\0';
-
-            if( wcslen(tmpstr1) ){
-                wchar_t *endptr;
-                long x = wcstol( tmpstr1, &endptr, 10);
-
-                tmpstr2[cnt] = L'\0';
-                wprintf(L"%s, %ld", tmpstr2, x);
+    int cnt = 0;
+    for ( int i =0, comma_cnt=0; (c = fgetwc(fp)) != WEOF; ) {
+        if ( c == L',' ) {
+            if ( comma_cnt == 0 ) {
+                tmpstr1[i] = L'\0';
+                mds[cnt].pat_len = wcstol( tmpstr1, &endptr, 10);
+            } else if ( comma_cnt < mds[cnt].pat_len+1 ) {
+                tmpstr1[i] = L'\0';
+                tmpstr2[comma_cnt-1] = wcstol( tmpstr1, &endptr, 16);
+            } else if ( comma_cnt == mds[cnt].pat_len+1 ) {
+                tmpstr2[comma_cnt-1] = L'\0';
+                memcpy( mds[cnt].pattern, tmpstr2, sizeof(wchar_t)*comma_cnt );
+                tmpstr1[i] = L'\0';
+                mds[cnt].n = wcstol( tmpstr1, &endptr, 10);
             } else {
-                tmpstr2[cnt] = L'\0';
-                wprintf(L"%s,", tmpstr2);
+                tmpstr1[i] = L'\0';
+                mds[cnt].pos[ comma_cnt - mds[cnt].pat_len -2 ] = wcstol( tmpstr1, &endptr, 10);
             }
-            cnt=0;
+
+            i=0;
+            tmpstr1[0] = L'\0';
+            comma_cnt++;
         } else if ( c == L'\n' ) {
-            wprintf(L"\n", tmpstr2);
+            i=0;
+            tmpstr1[0] = L'\0';
+            comma_cnt = 0;
+            cnt++;
+        } else {
+            tmpstr1[i] = c;
+            i++;
         }
     }
 
     fclose(fp);
 
-    return 0;
+    return cnt;
 }
 
 /* 比較関数 */
